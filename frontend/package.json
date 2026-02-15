@@ -1,0 +1,41 @@
+{
+  "type": "module",
+  "name": "budget-keeper",
+  "version": "0.1.0",
+  "private": true,
+  "main": "build/index.html",
+  "scripts": {
+    "dev": "bunx --bun vite",
+    "build": "bunx --bun vite build",
+    "build:ssg": "bun --bun ./ssr/ssg.ts",
+    "preview": "vite preview",
+    "serve:ssr": "bun run server/ssr.ts"
+  },
+  "dependencies": {
+    "@denshya/navigation": "^0.2.2",
+    "@denshya/proton": "^0.7.4",
+    "@denshya/reactive": "^0.10.0",
+    "@denshya/router": "^0.1.0",
+    "html5-qrcode": "^2.3.8",
+    "iterator-helpers-polyfill": "3.0.1",
+    "lodash-es": "^4.17.21",
+    "markdown-lexer": "^0.1.4",
+    "prism-themes": "^1.9.0",
+    "type-fest": "^4.31.0",
+    "urlpattern-polyfill": "10.1.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.21",
+    "@types/lodash-es": "^4.17.12",
+    "@typescript-eslint/eslint-plugin": "^8.19.0",
+    "@typescript-eslint/parser": "^8.19.0",
+    "bun": "^1.2.21",
+    "eslint": "9.34.0",
+    "eslint-plugin-simple-import-sort": "^12.1.1",
+    "eslint-plugin-unused-imports": "^4.1.4",
+    "sass-embedded": "^1.83.4",
+    "typescript": "^5.7.2",
+    "vite": "^7.1.3",
+    "vite-plugin-image-optimizer": "^2.0.2"
+  }
+}
