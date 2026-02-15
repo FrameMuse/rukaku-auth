@@ -42,7 +42,7 @@ async fn main() {
         .route_layer(middleware::from_fn_with_state(state.clone(), app::rate_limit_middleware))
         .with_state(state);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     println!("🚀 Server listening on http://{}", addr);
 
     let server_task = tokio::spawn(async move {
