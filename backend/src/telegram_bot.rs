@@ -47,9 +47,8 @@ async fn bot_handler(
             if let Some(value) = state.waiting_clients.get(uuid) {
                 let tx_channel = &value.client;
                 let pin = &value.pin;
-                let pin_string = pin.to_string();
-                let pin1 = &pin_string[0..3];
-                let pin2 = &pin_string[3..6];
+                let pin1 = pin / 1000;
+                let pin2 = pin % 1000;
 
                 // 4. Send to WebSocket
                 // We use a channel here because we can't hold the WS stream directly in the map easily
@@ -59,7 +58,7 @@ async fn bot_handler(
                     bot
                     .parse_mode(ParseMode::MarkdownV2)
                     .send_message(msg.chat.id, format!("Your login code is `{pin1} {pin2}`\\. Enter this in your browser\\."))
-                    .await.unwrap();
+                    .await?;
                     // bot.send_message(msg.chat.id, format!("✅ You've been logged in as {}! You can return back now.", username.as_deref().unwrap_or("Unknown"))).await?;
                 }
             } else {

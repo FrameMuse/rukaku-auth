@@ -1,15 +1,14 @@
-use std::sync::Arc;
-
 use axum::{
     extract::{State, ws::{Message, WebSocket, WebSocketUpgrade}},
     response::IntoResponse,
 };
-use futures::{lock::Mutex, sink::SinkExt, stream::StreamExt};
+use futures::{sink::SinkExt, stream::StreamExt};
 use serde_json::Value;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 use serde::Serialize;
 use rand::RngExt;
+use std::pin::pin;
 
 use crate::app;
 
@@ -53,46 +52,66 @@ async fn handle_socket(socket: WebSocket, state: app::AppState) {
     let _ = sender.send(Message::Text(serde_json::to_string(&init_payload).unwrap().into())).await;
     println!("[WebSocket] Connected: Waiting for auth on UUID: {}", uuid);
 
-    // Wrap sender in Arc<Mutex<>> to share between tasks
-    let sender = Arc::new(Mutex::new(sender));
+    // Channel to signal auth success with OK message
+    let (auth_done_tx, mut auth_done_rx) = mpsc::channel::<OneTimeAuthOK>(1);
 
-    // Create a task to forward internal channel messages to the WebSocket
-    let sender_clone = sender.clone();
-    let mut send_task = tokio::spawn(async move  {
-        while let Some(auth_data) = rx.recv().await {
-            let json = serde_json::to_string(&auth_data).unwrap();
-            let mut s =sender_clone.lock().await;
-            if s.send(Message::Text(json.into())).await.is_err() {
-                break;
+    // Create a task to forward internal channel messages and handle auth completion
+    let mut send_task = tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                Some(auth_data) = rx.recv() => {
+                    let json = serde_json::to_string(&auth_data).unwrap();
+                    if sender.send(Message::Text(json.into())).await.is_err() {
+                        break;
+                    }
+                }
+                Some(ok_msg) = auth_done_rx.recv() => {
+                    let json = serde_json::to_string(&ok_msg).unwrap();
+                    let _ = sender.send(Message::Text(json.into())).await;
+                    break;
+                }
             }
-            // Once auth is sent, we can technically close, but usually we let the frontend close
         }
     });
     
-    // Keep the socket alive until client disconnects
-    let sender_clone = sender.clone();
+    // Monitor client messages and validate OTP
     let mut recv_task = tokio::spawn(async move {
         while let Some(Ok(msg)) = receiver.next().await {
-            let msg_json: Value = serde_json::from_slice(&msg.into_data()).unwrap();
-            if msg_json["type"] == "AUTH_OTP" && msg_json["payload"]["otp"] == pin {
-                let mut s =sender_clone.lock().await;
-                let _ = s.send(Message::Text(serde_json::to_string(&OneTimeAuthOK { r#type: "AUTH_OK".to_string() }).unwrap().into())).await;
-                break;
+            match serde_json::from_slice::<Value>(&msg.into_data()) {
+                Ok(msg_json) => {
+                    if msg_json["type"] == "AUTH_OTP" && msg_json["payload"]["otp"] == pin {
+                        let ok_response = OneTimeAuthOK { r#type: "AUTH_OK".to_string()};
+                        let ok_response_await = auth_done_tx.send(ok_response).await.is_ok();
+                        
+                        if ok_response_await { break }
+                    }
+                }
+                Err(_) => continue,
             }
-
-            // We generally don't expect messages from the client in this flow, 
-            // but we need to keep the loop running to detect disconnects.
         }
     });
 
     // Define the timeout future
-    let timeout_duration = tokio::time::sleep(tokio::time::Duration::from_secs(60));
+    let mut timeout_future = pin!(tokio::time::sleep(tokio::time::Duration::from_secs(60)));
 
-    // Wait for either to finish
-    tokio::select! {
-        _ = (&mut send_task) => {},
-        _ = (&mut recv_task) => {},
-        _ = timeout_duration => { println!("[WebSocket] Connection timed out") },
+    // Wait for both tasks to complete or timeout
+    loop {
+        tokio::select! {
+            _ = &mut send_task => {
+                // send_task completed, wait for recv_task
+                let _ = (&mut recv_task).await;
+                break;
+            }
+            _ = &mut recv_task => {
+                // recv_task completed, wait for send_task
+                let _ = (&mut send_task).await;
+                break;
+            }
+            _ = &mut timeout_future => {
+                println!("[WebSocket] Connection timed out");
+                break;
+            }
+        }
     }
 
     send_task.abort();
