@@ -50,7 +50,7 @@ async fn handle_socket(socket: WebSocket, state: app::AppState) {
         token: uuid.clone()
     };
     let _ = sender.send(Message::Text(serde_json::to_string(&init_payload).unwrap().into())).await;
-    println!("[WebSocket] Connected: Waiting for auth on UUID: {}", uuid);
+    println!("[WebSocket] Connected: Waiting for auth on UUID: {uuid}");
 
     // Channel to signal auth success with OK message
     let (auth_done_tx, mut auth_done_rx) = mpsc::channel::<OneTimeAuthOK>(1);
