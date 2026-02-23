@@ -6,6 +6,7 @@ use axum::{
 use dashmap::DashMap;
 
 use governor::{RateLimiter, Quota};
+use tower_http::services::ServeDir;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -35,6 +36,7 @@ async fn main() {
 
     // 3. Setup Axum Server
     let app = Router::new()
+        .nest_service("/", ServeDir::new("../frontend/build"))
         .route("/new", get(websocket::ws_handler))
 
         // Apply the middleware, passing the state
