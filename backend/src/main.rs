@@ -36,8 +36,9 @@ async fn main() {
 
     // 3. Setup Axum Server
     let app = Router::new()
-        .nest_service("/", ServeDir::new("../frontend/build"))
         .route("/new", get(websocket::ws_handler))
+
+        .fallback_service(ServeDir::new("../frontend/build"))
 
         // Apply the middleware, passing the state
         .route_layer(middleware::from_fn_with_state(state.clone(), app::rate_limit_middleware))
