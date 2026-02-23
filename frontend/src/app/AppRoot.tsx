@@ -112,6 +112,7 @@ async function AppRoot(this: Proton.Component) {
         }
 
         if (data.type === "AUTH_OK") {
+          console.log(data)
           user.set({ username: "meow" })
           this.view.set(
             <div>{user.$.username}</div>
