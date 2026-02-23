@@ -98,7 +98,7 @@ async function AppRoot(this: Proton.Component) {
 
   const mountLifecycle = new Lifecycle({
     onEnter: () => {
-      const ws = new WebSocket(`ws://185.20.139.100:3000/new`)
+      const ws = new WebSocket(`ws://${window.location.host}/new`)
       ws.addEventListener("message", event => {
         const data = JSON.parse(event.data)
 
