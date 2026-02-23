@@ -22,8 +22,7 @@ mod telegram_bot;
 #[tokio::main]
 async fn main() {
     // --- Initialize Rate Limiter ---
-    // Allow 2 requests per second with a burst of 5
-    let quota = Quota::per_hour(nonzero!(2u32)).allow_burst(nonzero!(60u32));
+    let quota = Quota::per_hour(nonzero!(2u32)).allow_burst(nonzero!(15u32));
     let rate_limiter = Arc::new(RateLimiter::keyed(quota));
     
     // 1. Initialize State
