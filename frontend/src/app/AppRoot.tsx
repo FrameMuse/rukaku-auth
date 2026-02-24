@@ -2,8 +2,8 @@ import "@/assets/scss/reset.scss"
 import "@/assets/scss/base.scss"
 import "./App.scss"
 
-import { Messager, State } from "@denshya/reactive"
-import { Proton } from "@denshya/proton"
+import { Messager, State, StateBoolean, StateLike } from "@denshya/reactive"
+import { MountRoutine, Tama } from "@denshya/tama"
 
 
 
@@ -18,140 +18,128 @@ const user = new State<User | null>(null)
 
 
 
-interface FSM {
-  onEnter?(): void
-  onExit?(): void
-}
+class AuthSocket {
+  readonly uuid = new State<string | null>(null)
+  readonly pending = new State(false)
 
-interface EffectCleanable {
-  (): () => void
-}
+  readonly error = new State<Error | null>(null)
+  readonly status = new State<"CONNECTING" | "OPEN" | "CLOSED" | null>(null)
 
-interface EffectSignal {
-  (signal: AbortSignal): void
-}
+  readonly sender = new Messager<{ type: string, payload: unknown }>()
+  readonly receiver = new Messager<{ type: string, payload: unknown }>()
 
-class Lifecycle {
-  private readonly fsm: FSM = {}
-  private abortController: AbortController | null = null
+  readonly routine: MountRoutine
 
-  constructor(fsm: FSM)
-  constructor(effectCleanable: EffectCleanable)
-  constructor(effectSignal: EffectSignal)
-  constructor(arg: FSM | EffectCleanable | EffectSignal) {
-    if (typeof arg === "function") {
-      // EffectSignal
-      if (arg.length === 1) {
-        this.fsm.onEnter = () => {
-          this.abortController?.abort()
-          this.abortController = new AbortController
+  constructor() {
+    this.sender.subscribe(console.log)
+    this.receiver.subscribe(console.log)
 
-          arg(this.abortController.signal) as EffectSignal
-        }
-        this.fsm.onExit = () => {
-          this.abortController?.abort()
-          this.abortController = null
-        }
-        return
+    this.routine = new MountRoutine(() => this.activate())
+  }
+
+  private activate() {
+    this.status.set("CONNECTING")
+
+    const ws = new WebSocket(`wss://auth.rukaku.com/new`)
+
+    ws.addEventListener("message", event => this.onMessage(event))
+    ws.addEventListener("open", () => this.status.set("OPEN"))
+    ws.addEventListener("close", event => {
+      if (!event.wasClean) {
+        this.error.set(new Error("WebSocket Connection Closed: " + event.code))
       }
 
-      // EffectCleanable
-      this.fsm.onEnter = () => {
-        this.fsm.onExit = (arg as EffectCleanable)()
-      }
+      this.status.set("CLOSED")
+    })
 
-      return
+    const socketSenderSub = this.sender.subscribe(message => ws.send(JSON.stringify(message)))
+
+    return () => {
+      ws.close()
+      socketSenderSub.unsubscribe()
+    }
+  }
+
+  private onMessage(event: MessageEvent) {
+    console.log(event)
+    const data = JSON.parse(event.data)
+
+    if (data.status === "authenticated") {
+      this.receiver.dispatch(data)
+      this.pending.set(false)
     }
 
-    // FSM
-    this.fsm = { ...arg }
-  }
-
-  enter() {
-    this.fsm.onEnter?.()
-  }
-  exit() {
-    this.fsm.onExit?.()
-    this.fsm.onExit = undefined
-  }
-}
-class LifecycleManager {
-  private readonly items = new Set<Lifecycle>
-
-  add(lifecycle: Lifecycle): void { this.items.add(lifecycle) }
-
-  adopt(fsm: FSM): void
-  adopt(effectCleanable: EffectCleanable): void
-  adopt(effectSignal: EffectSignal): void
-  adopt(arg: FSM | EffectCleanable | EffectSignal) { }
-}
-
-
-
-async function AppRoot(this: Proton.Component) {
-  const uuid = new State<string | null>(null)
-  const pending = new State(false)
-  const status = new State<"" | null>(null)
-
-  const socketSender = new Messager<{ type: string, payload: unknown }>()
-  socketSender.subscribe(console.log)
-
-  const mountLifecycle = new Lifecycle({
-    onEnter: () => {
-      const ws = new WebSocket(`wss://${window.location.host}/new`)
-      ws.addEventListener("message", event => {
-        const data = JSON.parse(event.data)
-
-        if (data.status === "authenticated") {
-          user.set(data)
-          pending.set(false)
-        }
-
-        if (data.type === "ONE_TIME_AUTH") {
-          uuid.set(data.token)
-        }
-
-        if (data.type === "AUTH_OK") {
-          console.log(data)
-          user.set({ username: "meow" })
-          this.view.set(
-            <div>{user.$.username}</div>
-          )
-        }
-      })
-      ws.addEventListener("close", () => pending.set(false))
-
-      socketSender.subscribe(message => ws.send(JSON.stringify(message)))
+    if (data.type === "ONE_TIME_AUTH") {
+      this.uuid.set(data.token)
     }
-  })
-  requestIdleCallback(() => mountLifecycle.enter())
-  
-  // () => pending.set(true)
-  // () => pending.set(true)
-  // pending.sink(true)
+
+    if (data.type === "AUTH_OK") {
+      this.receiver.dispatch(data)
+    }
+  }
+}
+
+async function AppRoot(this: Tama.Component) {
+  const status = new State<"start" | null>(null)
+  const authSocket = new AuthSocket
+
+
   return (
     <div>
-      <div mounted={uuid}>
+      <pre>{authSocket.error}</pre>
+      <div mounted={authSocket.uuid.is(null)}>
+        <Button onClick={() => authSocket.routine.enter()} pending={authSocket.status.is("CONNECTING")}>Log in</Button>
+      </div>
+      <div mounted={authSocket.uuid}>
         {user.$.username}
-        <a href={State.f`tg://resolve?domain=rukaku_bot&start=${uuid}`} on={{ click: () => pending.set(true) }}>
+        <a href={State.f`tg://resolve?domain=rukaku_bot&start=${authSocket.uuid}`} on={{ click: () => authSocket.pending.set(true) }}>
           <button>
             <span>Telegram</span>
           </button>
         </a>
-        <form mounted={pending} on={{ submit: event => event.preventDefault() }}>
+        <form mounted={authSocket.pending} on={{ submit: event => event.preventDefault() }}>
           <label>OTP:</label>
           <input name="otp" />
           <button on={{ click: event => {
             const button = event.currentTarget
-            
             const otp = button.form.elements.otp.value.replace(" ", "")
-            socketSender.dispatch({ type: "AUTH_OTP", payload: { otp: +otp } })
-            button.textContent = "..."
+
+            authSocket.sender.dispatch({ type: "AUTH_OTP", payload: { otp: +otp } })
           } }}>Submit</button>
         </form>
       </div>
+
     </div>
   )
 }
 
+
 export default AppRoot
+
+interface ButtonProps {
+  onClick?(): void
+  pending?: StateLike<boolean>
+  children: unknown
+}
+
+function Button(props: ButtonProps) {
+  const pending = new State(false)
+  
+  async function onClick() {
+    try {
+      pending.set(true)
+      await props.onClick?.()
+    } finally {
+      pending.set(false)
+    }
+  }
+
+  
+  
+  return (
+    <button className="button" classMods={{ pending: StateBoolean.combine([pending, props.pending], (...bools) => bools.some(Boolean)) }} on={{ click: onClick }}>
+      <span className="content">{props.children}</span>
+      <span className="spinner" />
+    </button>
+  )
+}

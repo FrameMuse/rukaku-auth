@@ -13,29 +13,29 @@
   },
   "dependencies": {
     "@denshya/navigation": "^0.2.2",
-    "@denshya/proton": "^0.7.4",
-    "@denshya/reactive": "^0.10.0",
+    "@denshya/tama": "../../denshya/tama/denshya-tama-0.8.06.tgz",
+    "@denshya/reactive": "../../denshya/flow/denshya-reactive-0.11.0v1.tgz",
     "@denshya/router": "^0.1.0",
     "html5-qrcode": "^2.3.8",
     "iterator-helpers-polyfill": "3.0.1",
-    "lodash-es": "^4.17.21",
+    "lodash-es": "^4.17.23",
     "markdown-lexer": "^0.1.4",
     "prism-themes": "^1.9.0",
-    "type-fest": "^4.31.0",
+    "type-fest": "^5.4.4",
     "urlpattern-polyfill": "10.1.0"
   },
   "devDependencies": {
-    "@types/bun": "^1.2.21",
+    "@types/bun": "^1.3.9",
     "@types/lodash-es": "^4.17.12",
-    "@typescript-eslint/eslint-plugin": "^8.19.0",
-    "@typescript-eslint/parser": "^8.19.0",
-    "bun": "^1.2.21",
-    "eslint": "9.34.0",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "bun": "^1.3.9",
+    "eslint": "10.0.2",
     "eslint-plugin-simple-import-sort": "^12.1.1",
-    "eslint-plugin-unused-imports": "^4.1.4",
-    "sass-embedded": "^1.83.4",
-    "typescript": "^5.7.2",
-    "vite": "^7.1.3",
-    "vite-plugin-image-optimizer": "^2.0.2"
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "sass-embedded": "^1.97.3",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vite-plugin-image-optimizer": "^2.0.3"
   }
 }

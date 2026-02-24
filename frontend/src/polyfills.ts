@@ -23,10 +23,3 @@ if (window.Iterator?.prototype.filter == null) {
   const { installIntoGlobal } = await import("iterator-helpers-polyfill")
   installIntoGlobal()
 }
-
-/* URLPattern */
-
-// @ts-expect-error `URLPattern` exists in `Global`.
-if (window.URLPattern == null) {
-  await import("urlpattern-polyfill")
-}

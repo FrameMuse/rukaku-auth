@@ -1,4 +1,4 @@
-import { WebInflator } from "@denshya/proton"
+import { WebInflator } from "@denshya/tama"
 import { StateOrPlain } from "@denshya/reactive"
 
 import { bemful } from "@/utils/bem"
